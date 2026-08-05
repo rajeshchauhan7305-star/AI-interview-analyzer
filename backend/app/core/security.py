@@ -3,7 +3,8 @@ from jose import JWTError, jwt
 from passlib.context import CryptContext
 from app.core.config import settings
 
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+# Use pbkdf2_sha256 to avoid bcrypt's 72-byte password limit in this environment
+pwd_context = CryptContext(schemes=["pbkdf2_sha256"], deprecated="auto")
 
 
 def create_access_token(subject: str, expires_delta: timedelta | None = None) -> str:
@@ -19,11 +20,27 @@ def create_refresh_token(subject: str) -> str:
 
 
 def verify_password(plain_password: str, hashed_password: str) -> bool:
-    return pwd_context.verify(plain_password, hashed_password)
+    # bcrypt limits passwords to 72 bytes; ensure we verify against the same truncated input
+    pw = plain_password
+    try:
+        pw_bytes = pw.encode("utf-8")
+    except Exception:
+        pw_bytes = str(pw).encode("utf-8", errors="ignore")
+    if len(pw_bytes) > 72:
+        pw = pw_bytes[:72].decode("utf-8", errors="ignore")
+    return pwd_context.verify(pw, hashed_password)
 
 
 def get_password_hash(password: str) -> str:
-    return pwd_context.hash(password)
+    # bcrypt has a 72-byte input limit; truncate to bytes to avoid ValueError
+    pw = password
+    try:
+        pw_bytes = pw.encode("utf-8")
+    except Exception:
+        pw_bytes = str(pw).encode("utf-8", errors="ignore")
+    if len(pw_bytes) > 72:
+        pw = pw_bytes[:72].decode("utf-8", errors="ignore")
+    return pwd_context.hash(pw)
 
 
 def decode_token(token: str) -> dict:
