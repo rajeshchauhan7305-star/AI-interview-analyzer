@@ -49,3 +49,13 @@ A full-stack AI Interview Analyzer application with React + Vite + Tailwind CSS 
 - Backend API: `http://localhost:8000`
 - Swagger docs: `http://localhost:8000/docs`
 - Frontend: use the Vite URL shown in terminal, typically `http://localhost:4173`
+
+### Backend root redirect
+
+The backend root path (`http://localhost:8000/`) redirects to the frontend dev server by default.
+If your frontend runs on a different port, set the `FRONTEND_URL` environment variable before starting the backend, for example:
+
+```bash
+export FRONTEND_URL=http://127.0.0.1:4173/
+uvicorn backend.app.main:app --host 0.0.0.0 --port 8000 --reload
+```

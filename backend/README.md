@@ -14,6 +14,12 @@
    uvicorn backend.app.main:app --host 0.0.0.0 --port 8000 --reload
    ```
 
+If your frontend is on a different port, set `FRONTEND_URL` before running the backend:
+
+```bash
+export FRONTEND_URL=http://127.0.0.1:4173/
+```
+
 ## API
 
 The backend exposes OpenAPI docs at `http://localhost:8000/docs`.

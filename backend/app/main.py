@@ -1,3 +1,5 @@
+import os
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
@@ -35,22 +37,5 @@ app.mount("/uploads", StaticFiles(directory=str(UPLOADS_DIR)), name="uploads")
 
 @app.get("/")
 def root():
-        # Friendly HTML landing page that links to the frontend dev server
-        frontend_url = "http://127.0.0.1:4173/"
-        html = f"""
-        <!doctype html>
-        <html>
-            <head>
-                <meta charset='utf-8'/>
-                <meta name='viewport' content='width=device-width,initial-scale=1'/>
-                <title>AI Interview Analyzer</title>
-                <style>body{{font-family:system-ui,Segoe UI,Roboto,-apple-system,Arial;margin:40px;background:#0f172a;color:#e6eef8}}a{{color:#7dd3fc}}</style>
-            </head>
-            <body>
-                <h1>AI Interview Analyzer API is running</h1>
-                <p>Backend is healthy. Open the frontend at <a href='{frontend_url}'>{frontend_url}</a></p>
-                <p>If you're running the frontend on a different port, update the URL accordingly.</p>
-            </body>
-        </html>
-        """
-        return HTMLResponse(content=html)
+        frontend_url = os.getenv("FRONTEND_URL", "http://127.0.0.1:4173/")
+        return RedirectResponse(url=frontend_url)
