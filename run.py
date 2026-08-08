@@ -117,14 +117,36 @@ cmd = [
 print(f"Starting backend from {BACKEND_DIR} using {python_executable}")
 print(f"Open http://0.0.0.0:{backend_port} in your browser when the server starts.")
 
+backend_process = None
+
+def terminate_process(process, name):
+    if process is None:
+        return
+    if process.poll() is None:
+        print(f"Stopping {name}...")
+        process.terminate()
+        try:
+            process.wait(timeout=5)
+        except subprocess.TimeoutExpired:
+            process.kill()
+
+
+def shutdown(signum, frame):
+    terminate_process(backend_process, "backend")
+    if frontend_process is not None:
+        terminate_process(proc, "frontend")
+    sys.exit(0)
+
+signal.signal(signal.SIGINT, shutdown)
+signal.signal(signal.SIGTERM, shutdown)
+
 try:
-    return_code = subprocess.call(cmd, cwd=str(BACKEND_DIR))
+    backend_process = subprocess.Popen(cmd, cwd=str(BACKEND_DIR), stdout=sys.stdout, stderr=sys.stderr, env=os.environ)
+    return_code = backend_process.wait()
 finally:
     if frontend_process is not None:
-        proc.terminate()
-        try:
-            proc.wait(timeout=5)
-        except subprocess.TimeoutExpired:
-            proc.kill()
+        terminate_process(proc, "frontend")
+    if backend_process is not None and backend_process.poll() is None:
+        terminate_process(backend_process, "backend")
 
 sys.exit(return_code)

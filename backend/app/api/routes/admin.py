@@ -31,6 +31,18 @@ def admin_stats(db: Session = Depends(get_db), current_admin=Depends(get_current
         "total_questions": len(get_questions(db, 0, 1000)),
     }
 
+@router.get("/users")
+def list_users(db: Session = Depends(get_db), current_admin=Depends(get_current_admin)):
+    users = db.query(User).all()
+    return [{
+        "id": user.id,
+        "email": user.email,
+        "full_name": user.full_name,
+        "is_active": user.is_active,
+        "is_verified": user.is_verified,
+        "created_at": user.created_at,
+    } for user in users]
+
 @router.post("/users/{user_id}/block")
 def block_user(user_id: int, db: Session = Depends(get_db), current_admin=Depends(get_current_admin)):
     user = get_user(db, user_id)

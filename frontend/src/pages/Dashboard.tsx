@@ -1,11 +1,11 @@
 import { useEffect, useState } from 'react'
-import axios from 'axios'
+import api from '../services/api'
 
 export default function Dashboard() {
   const [stats, setStats] = useState<{ total_interviews: number; total_questions: number } | null>(null)
 
   useEffect(() => {
-    axios.get('/api/dashboard/stats', { headers: { Authorization: `Bearer ${localStorage.getItem('token')}` } })
+    api.get('/dashboard/stats')
       .then((response) => setStats(response.data))
       .catch(() => setStats(null))
   }, [])

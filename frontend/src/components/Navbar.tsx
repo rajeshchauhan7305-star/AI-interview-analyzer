@@ -60,6 +60,9 @@ export default function Navbar() {
               <Link className="button-glass" to="/register">
                 Register
               </Link>
+              <Link className="button-glass" to="/admin-login">
+                Admin
+              </Link>
             </>
           )}
         </nav>

@@ -1,12 +1,13 @@
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
 from sqlalchemy.orm import Session
+from starlette.responses import FileResponse
 from app.api.deps import get_db, get_current_user
-from app.schemas.interview import InterviewStart, InterviewAnswer, InterviewFinish, InterviewResponse
-from app.crud.crud_interview import create_interview, create_answer, update_interview_scores, get_interview
+from app.schemas.interview import InterviewStart, InterviewAnswer, InterviewFinish
+from app.crud.crud_interview import create_interview, create_answer, update_interview_scores, get_interview, create_report
 from app.crud.crud_question import get_questions, get_question
 from app.services.ai_service import analyze_answer, transcribe_audio
 from app.services.report_service import generate_pdf_report
-from app.db.models import InterviewCategory
+from app.db.models import InterviewCategory, Interview
 from pathlib import Path
 from app.core.config import settings
 import tempfile
@@ -16,10 +17,13 @@ router = APIRouter()
 @router.post("/start")
 def start_interview(interview_in: InterviewStart, db: Session = Depends(get_db), current_user=Depends(get_current_user)):
     interview = create_interview(db, current_user.id, interview_in.category_id, interview_in.difficulty)
-    questions = db.query(InterviewCategory).filter(InterviewCategory.id == interview_in.category_id).first().questions
-    if not questions:
-        questions = get_questions(db, skip=0, limit=5)
-    return {"interview_id": interview.id, "questions": [{"id": q.id, "text": q.text, "difficulty": q.difficulty.value} for q in questions[:5]]}
+    category = db.query(InterviewCategory).filter(InterviewCategory.id == interview_in.category_id).first()
+    questions = category.questions if category and category.questions else get_questions(db, skip=0, limit=5)
+    return {
+        "interview_id": interview.id,
+        "category": category.name if category else "General",
+        "questions": [{"id": q.id, "text": q.text, "difficulty": q.difficulty.value} for q in questions[:5]],
+    }
 
 @router.post("/answer")
 def save_answer(answer_in: InterviewAnswer, db: Session = Depends(get_db), current_user=Depends(get_current_user)):
@@ -47,7 +51,7 @@ def finish_interview(finish_in: InterviewFinish, db: Session = Depends(get_db), 
     interview = get_interview(db, finish_in.interview_id)
     if not interview or interview.user_id != current_user.id:
         raise HTTPException(status_code=404, detail="Interview not found")
-    total = sum([answer.grammar_score or 0 + answer.technical_score or 0 + answer.communication_score or 0 + answer.confidence_score or 0 for answer in interview.answers])
+    total = sum((answer.grammar_score or 0) + (answer.technical_score or 0) + (answer.communication_score or 0) + (answer.confidence_score or 0) for answer in interview.answers)
     count = len(interview.answers) * 4
     overall = round(total / count, 2) if count else 0
     summary = finish_in.summary or "Interview completed."
@@ -63,9 +67,8 @@ def finish_interview(finish_in: InterviewFinish, db: Session = Depends(get_db), 
         "summary": summary,
     }
     generate_pdf_report(str(report_path), report_data)
-    return {"interview_id": interview.id, "report_path": str(report_path), "overall_score": overall, "recommendation": recommendation}
-
-from app.db.models import Interview
+    report = create_report(db, interview.id, str(report_path), overall, interview.category.name if interview.category else "General")
+    return {"interview_id": interview.id, "report_id": report.id, "report_path": str(report_path), "overall_score": overall, "recommendation": recommendation}
 
 @router.get("/history")
 def get_history(db: Session = Depends(get_db), current_user=Depends(get_current_user)):
@@ -78,3 +81,14 @@ def get_interview_details(interview_id: int, db: Session = Depends(get_db), curr
     if not interview or interview.user_id != current_user.id:
         raise HTTPException(status_code=404, detail="Interview not found")
     return interview
+
+@router.get("/reports/{report_id}")
+def download_report(report_id: int, db: Session = Depends(get_db), current_user=Depends(get_current_user)):
+    from app.db.models import Report
+
+    report = db.query(Report).filter(Report.id == report_id).first()
+    if not report or not report.interview or report.interview.user_id != current_user.id:
+        raise HTTPException(status_code=404, detail="Report not found")
+    if not Path(report.pdf_path).exists():
+        raise HTTPException(status_code=404, detail="Report file not found")
+    return FileResponse(path=report.pdf_path, media_type='application/pdf', filename=Path(report.pdf_path).name)

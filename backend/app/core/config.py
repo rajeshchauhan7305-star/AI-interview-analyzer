@@ -39,6 +39,7 @@ class Settings(BaseSettings):
     SMTP_USER: str = os.getenv("SMTP_USER", "")
     SMTP_PASSWORD: str = os.getenv("SMTP_PASSWORD", "")
 
+    FRONTEND_URL: str | None = os.getenv("FRONTEND_URL")
     RESUME_UPLOAD_DIR: str = os.getenv("RESUME_UPLOAD_DIR", "backend/uploads/resumes")
     PROFILE_UPLOAD_DIR: str = os.getenv("PROFILE_UPLOAD_DIR", "backend/uploads/profiles")
 
